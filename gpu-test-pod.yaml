@@ -1,0 +1,22 @@
+# Sample pod requesting a GPU — used to prove the device plugin +
+# node group + scheduler are all wired correctly. Not applied via
+# Terraform since it's a workload, not infrastructure — this would
+# normally go through GitOps (ArgoCD) rather than kubectl in a real setup.
+apiVersion: v1
+kind: Pod
+metadata:
+  name: gpu-smoke-test
+spec:
+  restartPolicy: Never
+  tolerations:
+    - key: "nvidia.com/gpu"
+      operator: "Equal"
+      value: "true"
+      effect: "NoSchedule"
+  containers:
+    - name: cuda-check
+      image: nvidia/cuda:12.4.0-base-ubuntu22.04
+      command: ["nvidia-smi"]
+      resources:
+        limits:
+          nvidia.com/gpu: 1
