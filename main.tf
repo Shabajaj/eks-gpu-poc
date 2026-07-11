@@ -72,9 +72,17 @@ module "eks" {
 
   eks_managed_node_groups = {
     # ---- Default node group: core addons, no GPU needed ----
+    # t3.micro was the original choice (cheapest possible, fine for
+    # "prove the infra provisions" purposes) but hits a hard 4-pod-per-node
+    # ceiling from AWS's ENI-based pod density limit for that instance
+    # size — before any workload pods are even scheduled, system
+    # daemonsets (aws-node, kube-proxy, coredns, eks-pod-identity-agent)
+    # already consume all 4 slots. t3.small raises that ceiling to 11 pods
+    # per node, needed to actually run workload pods (Kaniko build,
+    # training Jobs, KServe, Kubeflow) on top of those system pods.
     default = {
       ami_type       = "AL2023_x86_64_STANDARD"
-      instance_types = ["t3.micro"]
+      instance_types = ["t3.small"]
       capacity_type  = "ON_DEMAND"
 
       min_size     = 2
