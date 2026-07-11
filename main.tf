@@ -77,12 +77,23 @@ module "eks" {
     # ceiling from AWS's ENI-based pod density limit for that instance
     # size — before any workload pods are even scheduled, system
     # daemonsets (aws-node, kube-proxy, coredns, eks-pod-identity-agent)
-    # already consume all 4 slots. t3.small raises that ceiling to 11 pods
-    # per node, needed to actually run workload pods (Kaniko build,
-    # training Jobs, KServe, Kubeflow) on top of those system pods.
+    # already consume all 4 slots. t3.small (11 pods/node) was enough for
+    # Kaniko builds and training Jobs, but Istio + Knative Serving + KServe
+    # (installed for real weighted canary rollout support) bring a control
+    # plane easily 10+ pods heavier, with correspondingly bigger memory
+    # requests (istiod alone typically wants several hundred MB).
+    #
+    # t3.medium was tried first and rejected outright by AWS: this account
+    # is restricted to Free Tier-eligible instance types only
+    # (InvalidParameterCombination error on launch — a hard account-level
+    # policy, not a quota/capacity issue). m7i-flex.large IS on the Free
+    # Tier-eligible list (confirmed via `aws ec2 describe-instance-types
+    # --filters Name=free-tier-eligible,Values=true`) and has the same 2
+    # vCPUs as t3.small but 4x the memory (8GB vs 2GB) — the best fit
+    # available for Istio's heavier footprint under this constraint.
     default = {
       ami_type       = "AL2023_x86_64_STANDARD"
-      instance_types = ["t3.small"]
+      instance_types = ["m7i-flex.large"]
       capacity_type  = "ON_DEMAND"
 
       min_size     = 2
