@@ -63,6 +63,26 @@ module "eks" {
 
   enable_cluster_creator_admin_permissions = true
 
+  # The module already opens a curated set of "common webhook" ports from
+  # the control plane to nodes (443, 4443, 6443, 8443, 9443, 10250, 10251)
+  # — enough for cert-manager (which deliberately defaults to 10250 for
+  # exactly this reason) but NOT for Istio's istiod webhook, which listens
+  # on 15017. Without this, the API server's admission webhook calls to
+  # istiod time out (context deadline exceeded), which silently blocks
+  # both sidecar injection AND istiod's own validating-webhook self-check
+  # — discovered by installing Istio for Item 3's KServe canary rollout
+  # and watching istio-ingressgateway's pod never get created.
+  node_security_group_additional_rules = {
+    ingress_cluster_to_node_istio_webhook = {
+      description                   = "Cluster API to node 15017/tcp (Istio webhook)"
+      protocol                      = "tcp"
+      from_port                     = 15017
+      to_port                       = 15017
+      type                          = "ingress"
+      source_cluster_security_group = true
+    }
+  }
+
   addons = {
     coredns                = {}
     kube-proxy              = {}
